@@ -2,12 +2,14 @@
 from kedpm.plugins.pdb_figaro import PDBFigaro, FigaroPassword
 import getpass
 import sys
+import os
 
-if len(sys.argv) < 2:
-    print "<fpm file>"
-    sys.exit(-1)
+f = os.path.join(os.environ["HOME"],".fpm/fpm")
 
-db = PDBFigaro(filename=sys.argv[1])
+if len(sys.argv) > 1:
+    f = sys.argv[1]
+
+db = PDBFigaro(filename=f)
 
 pw = getpass.getpass('Please give password : ')
 
