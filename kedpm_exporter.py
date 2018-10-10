@@ -3,6 +3,7 @@ from kedpm.plugins.pdb_figaro import PDBFigaro, FigaroPassword
 import getpass
 import sys
 import os
+import json
 
 f = os.path.join(os.environ["HOME"],".fpm/fpm")
 
@@ -17,18 +18,21 @@ db.open(pw)
 
 tree = db.getTree()
 
-
-header = [ f[1]['title'] for f in FigaroPassword.fields_type_info ]
-print "Path,", ",".join(header)
-
-
-def dump_tree(p, t):
+def get_tree(t):
+    files = {}
     for n in t.getNodes():
-        print "%s," % p, n.asCSV()
+        files[n['title']] = { 'user': n['user'],
+                          'password' : n['password'],
+                          'url' : n['url'],
+                          'notes' : n['notes']}
 
     branches = t.getBranches()
+    folders = {}
 
     for k in branches:
-        dump_tree("%s%s/" % (p, k), branches[k])
+        folders[k] = get_tree(branches[k])
+    return {'files': files, 'folders': folders}
 
-dump_tree("/", tree)
+d = get_tree(tree)
+
+json.dump(d, open("passwords.json", "w"))
