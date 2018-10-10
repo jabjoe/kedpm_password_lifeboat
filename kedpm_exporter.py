@@ -1,81 +1,32 @@
-#! /usr/bin/python3
-
-import select
+#! /usr/bin/python2
+from kedpm.plugins.pdb_figaro import PDBFigaro, FigaroPassword
 import getpass
-import subprocess
-import termios
-import tty
-import pty
 import sys
-import os
 
-master_fd, slave_fd = pty.openpty()
+if len(sys.argv) < 2:
+    print "<fpm file>"
+    sys.exit(-1)
 
-p = subprocess.Popen(["python", "/usr/bin/kedpm", "-c"], stdin=slave_fd, stdout=slave_fd, stderr=slave_fd)
+db = PDBFigaro(filename=sys.argv[1])
 
+pw = getpass.getpass('Please give password : ')
 
-def cmd_rsp(cmd, rsp_start, rsp_end):
-    os.write(master_fd, str("%s\n" % cmd).encode())
-    r_lines = []
-    started = False
-    while p.poll() is None:
-        r, w, e = select.select([sys.stdin, master_fd], [], [])
-        if sys.stdin in r:
-            d = sys.stdin.readline().encode()
-            os.write(master_fd, d)
-        elif master_fd in r:
-            o = os.read(master_fd, 10240)
-            if o:
-                o = o.decode()
-                lines = o.split("\n")
-                for line in lines:
-                    line = line.rstrip()
-                    if started:
-                        if line.find(rsp_end) != -1:
-                            return r_lines
-                        else:
-                            r_lines += [line]
-                    elif line.find(rsp_start) != -1:
-                        started = True
-                    else:
-                        print(line)
+db.open(pw)
+
+tree = db.getTree()
 
 
-
-try:
-    while p.poll() is None:
-        r, w, e = select.select([sys.stdin, master_fd], [], [])
-        if sys.stdin in r:
-            d = sys.stdin.readline().encode()
-            os.write(master_fd, d)
-        elif master_fd in r:
-            o = os.read(master_fd, 10240)
-            if o:
-                o = o.decode()
-                if o.find("Password accepted.") != -1:
-                    print(cmd_rsp("ls", "=== Directories ===", "==== Passwords ===="))
-                else:
-                    print(o)
-except Exception as e:
-    print(e)
-    pass
+header = [ f[1]['title'] for f in FigaroPassword.fields_type_info ]
+print "Path,", ",".join(header)
 
 
+def dump_tree(p, t):
+    for n in t.getNodes():
+        print "%s," % p, n.asCSV()
 
+    branches = t.getBranches()
 
-'''
-rlist = [p.stdout, p.stderr]
+    for k in branches:
+        dump_tree("%s%s/" % (p, k), branches[k])
 
-r = select.select(rlist,[], [])
-
-for line in r[0][0]:
-    print(line)
-
-while True:
-    line = p.stdout.readline()
-    if line == "Password:":
-        pw = getpass.getpass('Please give password : ')
-        p.stdin.communicate(input=pw)
-    else:
-        print(line)
-'''
+dump_tree("/", tree)
